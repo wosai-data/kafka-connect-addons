@@ -1,5 +1,7 @@
 package com.cloudest.connect.hbase;
 
+import org.apache.hadoop.hbase.client.Delete;
+import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
@@ -16,7 +18,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -47,7 +51,7 @@ public class HBaseSinkTask extends SinkTask {
         for (SinkRecord record: records) {
             String tableName = tableName(record.topic());
             try {
-                hBaseClient.write(tableName, toPut(extractData(record)));
+                hBaseClient.write(tableName, toMutations(extractData(record)));
             } catch (IOException e) {
                 throw new ConnectException("Failed to write record to hbase", e);
             }
@@ -79,11 +83,15 @@ public class HBaseSinkTask extends SinkTask {
     }
 
     private static byte[] getFieldData(Struct data, String field) {
+        if (data.get(field) == null) {
+            return null;
+        }
         Schema schema = data.schema();
         switch(schema.field(field).schema().type()) {
         case BOOLEAN:
             return Bytes.toBytes(data.getBoolean(field));
         case STRING:
+            /*
             if ("id".equals(field)) {
                 try {
                     UUID uuid = UUID.fromString(data.getString(field));
@@ -94,6 +102,7 @@ public class HBaseSinkTask extends SinkTask {
                 } catch(IllegalArgumentException e) {
                 }
             }
+            */
             return Bytes.toBytes(data.getString(field));
         case BYTES:
             return data.getBytes(field);
@@ -121,22 +130,41 @@ public class HBaseSinkTask extends SinkTask {
             if (baos.size()>0) {
                     baos.write(Bytes.toBytes(config.getRowkeyDelimiter()));
             }
-            baos.write(val);
+            if (val != null) {
+                baos.write(val);
+            }
         }
         return baos.toByteArray();
     }
 
-    private Put toPut(Struct data) throws IOException {
-        Put put = new Put(rowkey(data));
-        
+    private List<Mutation> toMutations(Struct data) throws IOException {
+        byte[] rowKey = rowkey(data);
+        Put put = new Put(rowKey);
+        Delete delete = new Delete(rowKey);
+
+        byte[] cf = Bytes.toBytes(config.getColumnFamily());
+
         for (Field field: data.schema().fields()) {
             String fieldName = field.name();
             byte[] fieldValue = getFieldData(data, fieldName);
-            put.addColumn(Bytes.toBytes(config.getColumnFamily()),
-                          Bytes.toBytes(fieldName),
-                          fieldValue);
+            if (fieldValue != null) {
+                put.addColumn(cf,
+                              Bytes.toBytes(fieldName),
+                              fieldValue);
+            }else {
+                delete.addColumn(cf, Bytes.toBytes(fieldName));
+            }
         }
-        return put;
+
+        List<Mutation> mutations = new ArrayList<>();
+
+        if (!put.isEmpty()) {
+            mutations.add(put);
+        }
+        if (!delete.isEmpty()) {
+            mutations.add(delete);
+        }
+        return mutations;
     }
 
     @Override

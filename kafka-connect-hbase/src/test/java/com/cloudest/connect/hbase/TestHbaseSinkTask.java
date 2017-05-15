@@ -61,6 +61,7 @@ public class TestHbaseSinkTask {
 
         final Schema dataSchema = SchemaBuilder.struct().name("data").version(1)
           .field("url", Schema.STRING_SCHEMA)
+          .field("name", Schema.OPTIONAL_STRING_SCHEMA)
           .field("id", Schema.INT32_SCHEMA)
           .field("zipcode", Schema.INT32_SCHEMA)
           .field("status", Schema.INT32_SCHEMA)
@@ -75,6 +76,7 @@ public class TestHbaseSinkTask {
         for (int i = 1; i <= noOfRecords; i++) {
             final Struct data = new Struct(dataSchema)
               .put("url", "google.com")
+              .put("name", null)
               .put("id", i)
               .put("zipcode", 95050 + i)
               .put("status", 400 + i);
@@ -97,8 +99,10 @@ public class TestHbaseSinkTask {
             for (Result result : results) {
                 int rowId = Bytes.toInt(result.getRow());
                 String url = Bytes.toString(result.getValue(Bytes.toBytes(columnFamily), Bytes.toBytes("url")));
+                String name = Bytes.toString(result.getValue(Bytes.toBytes(columnFamily), Bytes.toBytes("name")));
                 Assert.assertEquals(count + 1, rowId);
                 Assert.assertEquals("google.com", url);
+                Assert.assertEquals(null, name);
                 count++;
             }
             Assert.assertEquals(noOfRecords, count);

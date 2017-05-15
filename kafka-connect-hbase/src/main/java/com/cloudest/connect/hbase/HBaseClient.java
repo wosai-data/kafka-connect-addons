@@ -9,7 +9,7 @@ import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.BufferedMutator;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
-import org.apache.hadoop.hbase.client.Put;
+import org.apache.hadoop.hbase.client.Mutation;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -29,18 +29,18 @@ public final class HBaseClient {
         this.connection = ConnectionFactory.createConnection(configuration);
     }
 
-    public void write(final String tableName, final List<Put> puts) throws IOException {
+    public void write(final String tableName, final List<Mutation> mutations) throws IOException {
         Preconditions.checkNotNull(tableName);
-        Preconditions.checkNotNull(puts);
+        Preconditions.checkNotNull(mutations);
         final TableName table = TableName.valueOf(tableName);
-        write(table, puts);
+        write(table, mutations);
     }
 
-    public void write(final String tableName, final Put put) throws IOException {
+    public void write(final String tableName, final Mutation mutation) throws IOException {
         Preconditions.checkNotNull(tableName);
-        Preconditions.checkNotNull(put);
+        Preconditions.checkNotNull(mutation);
         final TableName table = TableName.valueOf(tableName);
-        write(table, put);
+        write(table, mutation);
     }
 
     public void flush() throws IOException {
@@ -64,15 +64,15 @@ public final class HBaseClient {
         return buffer;
     }
 
-    private void write(final TableName table, final List<Put> puts) throws IOException {
+    private void write(final TableName table, final List<Mutation> mutations) throws IOException {
 
         BufferedMutator bm = getBuffer(table);
-        bm.mutate(puts);
+        bm.mutate(mutations);
     }
 
-    private void write(final TableName table, final Put put) throws IOException {
+    private void write(final TableName table, final Mutation mutation) throws IOException {
 
         BufferedMutator bm = getBuffer(table);
-        bm.mutate(put);
+        bm.mutate(mutation);
     }
 }

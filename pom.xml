@@ -30,7 +30,7 @@
     <jackson.version>2.8.1</jackson.version>
 
     <confluent.version>3.1.2</confluent.version>
-    <hbase.version>1.2.4</hbase.version>
+    <hbase.version>1.3.0</hbase.version>
     <logback.version>1.1.3</logback.version>
 
     <confluent.maven.repo>http://packages.confluent.io/maven/</confluent.maven.repo>
