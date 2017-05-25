@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 public class HBaseSinkTask extends SinkTask {
     private static final Logger logger = LoggerFactory.getLogger(HBaseSinkTask.class);
@@ -51,7 +50,12 @@ public class HBaseSinkTask extends SinkTask {
         for (SinkRecord record: records) {
             String tableName = tableName(record.topic());
             try {
-                hBaseClient.write(tableName, toMutations(extractData(record)));
+                Struct mutations = extractData(record);
+                if (mutations != null){
+                    hBaseClient.write(tableName, toMutations(mutations));
+                } else {  // (mutations == null) <=> Delete
+                    hBaseClient.write(tableName, new Delete(rowkey(mutations)));
+                }
             } catch (IOException e) {
                 throw new ConnectException("Failed to write record to hbase", e);
             }
