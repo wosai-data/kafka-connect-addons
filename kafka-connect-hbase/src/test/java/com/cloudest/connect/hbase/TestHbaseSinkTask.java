@@ -3,17 +3,12 @@ package com.cloudest.connect.hbase;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.TableName;
-import org.apache.hadoop.hbase.client.ConnectionFactory;
-import org.apache.hadoop.hbase.client.Result;
-import org.apache.hadoop.hbase.client.ResultScanner;
-import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.client.Table;
+import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.sink.SinkRecord;
-
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -59,7 +54,7 @@ public class TestHbaseSinkTask {
         HBaseSinkTask task = new HBaseSinkTask();
         task.start(props);
 
-        final Schema dataSchema = SchemaBuilder.struct().name("data").version(1)
+        final Schema dataSchema = SchemaBuilder.struct().name("data").version(1).optional()
           .field("url", Schema.STRING_SCHEMA)
           .field("name", Schema.OPTIONAL_STRING_SCHEMA)
           .field("id", Schema.INT32_SCHEMA)
@@ -86,6 +81,16 @@ public class TestHbaseSinkTask {
             sinkRecords.add(sinkRecord);
         }
 
+        final Struct data = new Struct(dataSchema)
+              .put("url", "google.com")
+              .put("name", null)
+              .put("id", noOfRecords)
+              .put("zipcode", 95050 + noOfRecords)
+              .put("status", 400 + noOfRecords);
+        final Struct record = new Struct(valueSchema).put("after", null).put("before",data);
+        SinkRecord sinkRecord = new SinkRecord("test2", 0, null, null, dataSchema, record, noOfRecords);
+        sinkRecords.add(sinkRecord);
+
         task.put(sinkRecords);
         task.stop();
 
@@ -105,7 +110,7 @@ public class TestHbaseSinkTask {
                 Assert.assertEquals(null, name);
                 count++;
             }
-            Assert.assertEquals(noOfRecords, count);
+            Assert.assertEquals(noOfRecords-1, count);
         }
     }
 

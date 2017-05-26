@@ -47,14 +47,17 @@ public class HBaseSinkTask extends SinkTask {
 
     @Override
     public void put(Collection<SinkRecord> records) {
-        for (SinkRecord record: records) {
+        for (SinkRecord record : records) {
             String tableName = tableName(record.topic());
             try {
                 Struct mutations = extractData(record);
-                if (mutations != null){
+                if (mutations != null) {
                     hBaseClient.write(tableName, toMutations(mutations));
                 } else {  // (mutations == null) <=> Delete
-                    hBaseClient.write(tableName, new Delete(rowkey(mutations)));
+                    mutations = extractData(record, "before");
+                    if (mutations != null) {
+                        hBaseClient.write(tableName, new Delete(rowkey(mutations)));
+                    }
                 }
             } catch (IOException e) {
                 throw new ConnectException("Failed to write record to hbase", e);
@@ -70,6 +73,20 @@ public class HBaseSinkTask extends SinkTask {
         }
     }
 
+    private Struct extractData(SinkRecord sinkRecord, String dataField){
+        Object value = sinkRecord.value();
+        if (! (value instanceof Struct) ) {
+            throw new DataException("SinkRecord's value is not of struct type.");
+        }
+        if (dataField.length() > 0) {
+            value = ((Struct) value).getStruct(dataField);
+            if (! (value instanceof Struct) ) {
+                logger.warn("Value's data field is not of struct type.");
+            }
+        }
+        return (Struct) value;
+    }
+
     private Struct extractData(SinkRecord sinkRecord) {
         Object value = sinkRecord.value();
         String dataField = config.getDataField();
@@ -78,8 +95,9 @@ public class HBaseSinkTask extends SinkTask {
         }
         if (dataField.length() > 0) {
             value = ((Struct) value).getStruct(dataField);
-            if (! (value instanceof Struct) ) {
-                throw new DataException("Value's data field is not of struct type.");
+            if (! (value instanceof Struct) ) { // mysql delete struct 'after' is null;
+//                throw new DataException("Value's data field is not of struct type.");
+                logger.warn("Value's data field is not of struct type.");
             }
         }
 
