@@ -88,20 +88,22 @@ public class HBaseSinkTask extends SinkTask {
     }
 
     private Struct extractData(SinkRecord sinkRecord) {
-        Object value = sinkRecord.value();
-        String dataField = config.getDataField();
-        if (! (value instanceof Struct) ) {
-            throw new DataException("SinkRecord's value is not of struct type.");
-        }
-        if (dataField.length() > 0) {
-            value = ((Struct) value).getStruct(dataField);
-            if (! (value instanceof Struct) ) { // mysql delete struct 'after' is null;
-//                throw new DataException("Value's data field is not of struct type.");
-                logger.warn("Value's data field is not of struct type.");
-            }
-        }
+        return extractData(sinkRecord, config.getDataField());
+//        Object value = sinkRecord.value();
+//        String dataField = config.getDataField();
+//        if (! (value instanceof Struct) ) {
+//            throw new DataException("SinkRecord's value is not of struct type.");
+//        }
+//        if (dataField.length() > 0) {
+//            value = ((Struct) value).getStruct(dataField);
+//            if (! (value instanceof Struct) ) { // mysql delete struct 'after' is null;
+////                throw new DataException("Value's data field is not of struct type.");
+//                logger.warn("Value's data field is not of struct type.");
+//            }
+//        }
+//
+//        return (Struct) value;
 
-        return (Struct) value;
     }
 
     private static byte[] getFieldData(Struct data, String field) {
