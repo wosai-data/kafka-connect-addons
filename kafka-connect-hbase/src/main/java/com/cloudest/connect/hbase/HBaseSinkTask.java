@@ -78,9 +78,9 @@ public class HBaseSinkTask extends SinkTask {
         if (! (value instanceof Struct) ) {
             throw new DataException("SinkRecord's value is not of struct type.");
         }
-        if (dataField.length() > 0) {
+        if (null != dataField && dataField.length() > 0) {
             value = ((Struct) value).getStruct(dataField);
-            if (! (value instanceof Struct) ) {
+            if (!(value instanceof Struct)) {
                 logger.warn("Value's data field is not of struct type.");
             }
         }
