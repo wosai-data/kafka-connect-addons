@@ -1,5 +1,6 @@
 package com.cloudest.connect.hbase;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
@@ -50,19 +51,91 @@ public class HBaseSinkTask extends SinkTask {
         for (SinkRecord record : records) {
             String tableName = tableName(record.topic());
             try {
-                Struct mutations = extractData(record);
-                if (mutations != null) {
-                    hBaseClient.write(tableName, toMutations(mutations));
-                } else {  // (mutations == null) <=> Delete
-                    mutations = extractData(record, "before");
-                    if (mutations != null) {
-                        hBaseClient.write(tableName, new Delete(rowkey(mutations)));
+                Struct payload = (Struct) record.value();
+                if (payload == null) { // handle tombstone event (delete)
+                    handleDeleteForBinlog(record, tableName);
+                } else {
+                    String op = payload.getString("op");
+                    if (StringUtils.equals("u", op) || StringUtils.equals("c", op)) {  // handle create and update
+                        hBaseClient.write(tableName, toMutations(extractData(record)));
                     }
                 }
+
             } catch (IOException e) {
+                logger.error("Failed to write to hbase.record is {}.", record, e);
                 throw new ConnectException("Failed to write record to hbase", e);
             }
         }
+    }
+
+    /**
+     * binlog  key is a struct with pk
+     *
+     *
+     * {
+     "schema": {
+         "type": "struct",
+         "name": "mysql-server-1.inventory.customers.Key"
+         "optional": false,
+         "fields": [
+         {
+         "field": "id",
+         "type": "int32",
+         "optional": false
+         }
+         ]
+         },
+         "payload": {
+         "id": 1001
+         }
+     }
+     *
+     *
+     * @param record
+     * @param tableName
+     * @throws IOException
+     */
+    private void handleDeleteForBinlog(SinkRecord record, String tableName) throws IOException {
+        byte[] keyBytes = null;
+        Schema.Type keySchemaType = null;
+        String field_id = "id";
+        if (record.keySchema().field(field_id) != null) {
+           keySchemaType =record.keySchema().field(field_id).schema().type();
+        }
+        Struct key = (Struct) record.key();
+        if (keySchemaType != null) {
+            switch(keySchemaType) {
+                case BOOLEAN:
+                    keyBytes = Bytes.toBytes(key.getBoolean(field_id));
+                    break;
+                case STRING:
+                    keyBytes =  Bytes.toBytes(key.getString(field_id));
+                    break;
+                case BYTES:
+                    keyBytes =  key.getBytes(field_id);
+                    break;
+                case INT8:
+                    keyBytes =  Bytes.toBytes(key.getInt8(field_id));
+                    break;
+                case INT16:
+                    keyBytes =  Bytes.toBytes(key.getInt16(field_id));
+                    break;
+                case INT32:
+                    keyBytes =  Bytes.toBytes(key.getInt32(field_id));
+                    break;
+                case INT64:
+                    keyBytes =  Bytes.toBytes(key.getInt64(field_id));
+                    break;
+                case FLOAT32:
+                    keyBytes =  Bytes.toBytes(key.getFloat32(field_id));
+                    break;
+                case FLOAT64:
+                    keyBytes =  Bytes.toBytes(key.getFloat64(field_id));
+                    default:
+            }
+        }
+        if (keyBytes != null)
+            hBaseClient.write(tableName, new Delete(keyBytes));
     }
 
     private String tableName(String topic) {
@@ -73,36 +146,36 @@ public class HBaseSinkTask extends SinkTask {
         }
     }
 
-    private Struct extractData(SinkRecord sinkRecord, String dataField){
-        Object value = sinkRecord.value();
-        if (! (value instanceof Struct) ) {
-            throw new DataException("SinkRecord's value is not of struct type.");
-        }
-        if (null != dataField && dataField.length() > 0) {
-            value = ((Struct) value).getStruct(dataField);
-            if (!(value instanceof Struct)) {
-                logger.warn("Value's data field is not of struct type.");
-            }
-        }
-        return (Struct) value;
-    }
-
-    private Struct extractData(SinkRecord sinkRecord) {
-        return extractData(sinkRecord, config.getDataField());
+//    private Struct extractData(SinkRecord sinkRecord, String dataField){
 //        Object value = sinkRecord.value();
-//        String dataField = config.getDataField();
 //        if (! (value instanceof Struct) ) {
 //            throw new DataException("SinkRecord's value is not of struct type.");
 //        }
-//        if (dataField.length() > 0) {
+//        if (null != dataField && dataField.length() > 0) {
 //            value = ((Struct) value).getStruct(dataField);
-//            if (! (value instanceof Struct) ) { // mysql delete struct 'after' is null;
-////                throw new DataException("Value's data field is not of struct type.");
+//            if (!(value instanceof Struct)) {
 //                logger.warn("Value's data field is not of struct type.");
 //            }
 //        }
-//
 //        return (Struct) value;
+//    }
+
+    private Struct extractData(SinkRecord sinkRecord) {
+
+        Object value = sinkRecord.value();
+        String dataField = config.getDataField();
+        if (! (value instanceof Struct) ) {
+            throw new DataException("SinkRecord's value is not of struct type.");
+        }
+        if (dataField.length() > 0) {
+            value = ((Struct) value).getStruct(dataField);
+            if (! (value instanceof Struct) ) { // mysql delete struct 'after' is null;
+                throw new DataException("Value's data field is not of struct type.");
+                //logger.warn("Value's data field is not of struct type.");
+            }
+        }
+
+        return (Struct) value;
 
     }
 
