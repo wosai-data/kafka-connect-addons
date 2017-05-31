@@ -63,8 +63,12 @@ public class TestHbaseSinkTask {
           .build();
 
         final Schema valueSchema = SchemaBuilder.struct().name("record").version(1)
+                .field("op",Schema.STRING_SCHEMA)
                 .field("before", dataSchema)
                 .field("after", dataSchema).build();
+
+        final Schema keySchema = SchemaBuilder.struct().name("keySchema").version(1)
+                .field("id",Schema.INT32_SCHEMA);
 
         Collection<SinkRecord> sinkRecords = new ArrayList<>();
         int noOfRecords = 10;
@@ -75,20 +79,21 @@ public class TestHbaseSinkTask {
               .put("id", i)
               .put("zipcode", 95050 + i)
               .put("status", 400 + i);
-            final Struct record = new Struct(valueSchema).put("after", data);
-
-            SinkRecord sinkRecord = new SinkRecord("test2", 0, null, null, dataSchema, record, i);
+            final Struct record = new Struct(valueSchema).put("after", data).put("op","c");
+            Struct key =  new Struct(keySchema).put("id",i);
+            SinkRecord sinkRecord = new SinkRecord("test2", 0, keySchema, key, dataSchema, record, i);
             sinkRecords.add(sinkRecord);
         }
 
-        final Struct data = new Struct(dataSchema)
-              .put("url", "google.com")
-              .put("name", null)
-              .put("id", noOfRecords)
-              .put("zipcode", 95050 + noOfRecords)
-              .put("status", 400 + noOfRecords);
-        final Struct record = new Struct(valueSchema).put("after", null).put("before",data);
-        SinkRecord sinkRecord = new SinkRecord("test2", 0, null, null, dataSchema, record, noOfRecords);
+//        final Struct data = new Struct(dataSchema)
+//              .put("url", "google.com")
+//              .put("name", null)
+//              .put("id", noOfRecords)
+//              .put("zipcode", 95050 + noOfRecords)
+//              .put("status", 400 + noOfRecords);
+//        final Struct record = new Struct(valueSchema).put("after", null).put("before",data);
+        Struct key =  new Struct(keySchema).put("id",noOfRecords);
+        SinkRecord sinkRecord = new SinkRecord("test2", 0, keySchema, key, dataSchema, null, noOfRecords);
         sinkRecords.add(sinkRecord);
 
         task.put(sinkRecords);
