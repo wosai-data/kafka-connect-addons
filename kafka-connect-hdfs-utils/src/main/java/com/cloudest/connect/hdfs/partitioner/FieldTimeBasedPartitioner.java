@@ -3,20 +3,12 @@ package com.cloudest.connect.hdfs.partitioner;
 import io.confluent.connect.hdfs.HdfsSinkConnectorConfig;
 import io.confluent.connect.hdfs.errors.PartitionException;
 import io.confluent.connect.hdfs.partitioner.Partitioner;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.connect.data.Schema;
-import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.data.Schema.Type;
+import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -24,6 +16,16 @@ import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 
 public class FieldTimeBasedPartitioner implements Partitioner {
@@ -36,6 +38,8 @@ public class FieldTimeBasedPartitioner implements Partitioner {
     protected List<FieldSchema> partitionFields = new ArrayList<>();
     private static String patternString = "'year'=Y{1,5}/('month'=M{1,5}/)?('day'=d{1,3}/)?('hour'=H{1,3}/)?('minute'=m{1,3}/)?";
     private static Pattern pattern = Pattern.compile(patternString);
+
+    private static final DateFormat DF =  new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssX");
 
     protected void init(String fieldName, long partitionDurationMs, String pathFormat, Locale locale,
                         DateTimeZone timeZone, boolean hiveIntegration) {
@@ -110,7 +114,16 @@ public class FieldTimeBasedPartitioner implements Partitioner {
                 timestamp = ((Number)timestampFieldValue).longValue();
                 break;
             case STRING:
-                timestamp = Long.parseLong((String)timestampFieldValue);
+                try {
+                    timestamp = Long.parseLong((String)timestampFieldValue);
+                } catch (NumberFormatException e) {
+                    try {  // add by terry timestamp format like '2017-06-02T11:06:55+08:00'
+                        timestamp = DF.parse((String) timestampFieldValue).getTime();
+                    } catch (ParseException e1) {
+                        logger.error("timestamp {} format is invalid.",timestampFieldValue, e);
+                        throw new RuntimeException(e1);
+                    }
+                }
                 break;
             default:
               logger.error("Type {} is not supported as a timestamp partition field.", type.getName());
