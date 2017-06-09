@@ -117,7 +117,8 @@ public class FieldTimeBasedPartitioner implements Partitioner {
                 try {
                     timestamp = Long.parseLong((String)timestampFieldValue);
                 } catch (NumberFormatException e) {
-                    try {  // hack ... add by terry timestamp format (ISO8601 : UTC + offset) like '2017-06-02T11:06:55+08:00'
+                    try {
+                        // hack ... add by terry timestamp format (ISO8601 : UTC + offset) like '2017-06-02T11:06:55+08:00'
                         timestamp = sdf.parse((String) timestampFieldValue).getTime();
                     } catch (ParseException e1) {
                         logger.error("timestamp {} format is invalid.",timestampFieldValue, e);
