@@ -1,5 +1,7 @@
 package com.cloudest.connect.hbase;
 
+import com.cloudest.connect.hbase.transformer.Transformer;
+import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
@@ -179,46 +181,124 @@ public class HBaseSinkTask extends SinkTask {
 
     }
 
-    private static byte[] getFieldData(Struct data, String field) {
+    private byte[] getFieldData(Struct data, String field) {
         if (data.get(field) == null) {
             return null;
         }
         Schema schema = data.schema();
-        switch(schema.field(field).schema().type()) {
-        case BOOLEAN:
-            return Bytes.toBytes(data.getBoolean(field));
-        case STRING:
-            /*
-            if ("id".equals(field)) {
-                try {
-                    UUID uuid = UUID.fromString(data.getString(field));
-                    byte[] uuidBytes = new byte[Bytes.SIZEOF_LONG * 2];
-                    Bytes.putLong(uuidBytes, 0, uuid.getMostSignificantBits());
-                    Bytes.putLong(uuidBytes, Bytes.SIZEOF_LONG, uuid.getLeastSignificantBits());
-                    return uuidBytes;
-                } catch(IllegalArgumentException e) {
-                }
+        Transformer transformer = null;
+        if (MapUtils.isNotEmpty(config.getTransformerMapping())) {
+            transformer = config.getTransformerMapping().get(field);
+        }
+        if (transformer != null) {
+            Object value;
+            switch (schema.field(field).schema().type()) {
+                case BOOLEAN:
+                    value = transformer.transform(data.getBoolean(field));
+                    break;
+                case STRING:
+                     value = transformer.transform(data.getString(field));
+                    break;
+                case BYTES:
+                    value = transformer.transform(data.getBytes(field));
+                    break;
+                case INT8:
+                    value = transformer.transform(data.getInt8(field));
+                    break;
+                case INT16:
+                    value = transformer.transform(data.getInt16(field));
+                    break;
+                case INT32:
+                    value = transformer.transform(data.getInt32(field));
+                    break;
+                case INT64:
+                    value = transformer.transform(data.getInt64(field));
+                    break;
+                case FLOAT32:
+                    value = transformer.transform(data.getFloat32(field));
+                    break;
+                case FLOAT64:
+                    value = transformer.transform(data.getFloat64(field));
+                    break;
+                default:
+                    return null;
             }
-            */
-            return Bytes.toBytes(data.getString(field));
-        case BYTES:
-            return data.getBytes(field);
-        case INT8:
-            return Bytes.toBytes(data.getInt8(field));
-        case INT16:
-            return Bytes.toBytes(data.getInt16(field));
-        case INT32:
-            return Bytes.toBytes(data.getInt32(field));
-        case INT64:
-            return Bytes.toBytes(data.getInt64(field));
-        case FLOAT32:
-            return Bytes.toBytes(data.getFloat32(field));
-        case FLOAT64:
-            return Bytes.toBytes(data.getFloat64(field));
-        default:
-            return null;    
+            if (value instanceof Byte) {
+                return Bytes.toBytes((Byte) value);
+            } else if (value instanceof Short) {
+                return Bytes.toBytes((Short) value);
+            } else if (value instanceof Integer) {
+                return Bytes.toBytes((Integer) value);
+            } else if (value instanceof Long) {
+                return Bytes.toBytes((Long) value);
+            } else if (value instanceof byte[]) {
+                return (byte[]) value;
+            } else if (value instanceof Boolean) {
+                return Bytes.toBytes((Boolean) value);
+            } else if (value instanceof String) {
+                return Bytes.toBytes((String) value);
+            } else if (value instanceof Float) {
+                return Bytes.toBytes((Float) value);
+            } else if (value instanceof Double) {
+                return Bytes.toBytes((Double) value);
+            } else {
+                return null;
+            }
+        } else {
+            switch (schema.field(field).schema().type()) {
+                case BOOLEAN:
+                    return Bytes.toBytes(data.getBoolean(field));
+                case STRING:
+                    return Bytes.toBytes(data.getString(field));
+                case BYTES:
+                    return data.getBytes(field);
+                case INT8:
+                    return Bytes.toBytes(data.getInt8(field));
+                case INT16:
+                    return Bytes.toBytes(data.getInt16(field));
+                case INT32:
+                    return Bytes.toBytes(data.getInt32(field));
+                case INT64:
+                    return Bytes.toBytes(data.getInt64(field));
+                case FLOAT32:
+                    return Bytes.toBytes(data.getFloat32(field));
+                case FLOAT64:
+                    return Bytes.toBytes(data.getFloat64(field));
+                default:
+                    return null;
+            }
         }
     }
+
+
+//    private static byte[] getFieldData(Struct data, String field) {
+//        if (data.get(field) == null) {
+//            return null;
+//        }
+//        Schema schema = data.schema();
+//        switch(schema.field(field).schema().type()) {
+//        case BOOLEAN:
+//            return Bytes.toBytes(data.getBoolean(field));
+//        case STRING:
+//            return Bytes.toBytes(data.getString(field));
+//        case BYTES:
+//            return data.getBytes(field);
+//        case INT8:
+//            return Bytes.toBytes(data.getInt8(field));
+//        case INT16:
+//            return Bytes.toBytes(data.getInt16(field));
+//        case INT32:
+//            return Bytes.toBytes(data.getInt32(field));
+//        case INT64:
+//            return Bytes.toBytes(data.getInt64(field));
+//        case FLOAT32:
+//            return Bytes.toBytes(data.getFloat32(field));
+//        case FLOAT64:
+//            return Bytes.toBytes(data.getFloat64(field));
+//        default:
+//            return null;
+//        }
+//    }
 
     private byte[] rowkey(Struct data) throws IOException{
         ByteArrayOutputStream baos = new ByteArrayOutputStream();

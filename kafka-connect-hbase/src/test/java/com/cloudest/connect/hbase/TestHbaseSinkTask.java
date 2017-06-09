@@ -43,6 +43,7 @@ public class TestHbaseSinkTask {
         props.put(HBaseSinkConfig.HBASE_COLUMN_FAMILY_CONFIG, columnFamily);
         // props.put("topics", hbaseTable);
         props.put(HBaseSinkConfig.ZOOKEEPER_QUORUM_CONFIG, "localhost:" + HbaseTestUtil.getUtility().getZkCluster().getClientPort());
+        props.put(HBaseSinkConfig.FIELDS_TRANSFORMERS_CONFIG, "mtime=com.cloudest.connect.hbase.transformer.TS8601ToLongTransformer");
     }
 
     @Test
@@ -60,6 +61,7 @@ public class TestHbaseSinkTask {
           .field("id", Schema.INT32_SCHEMA)
           .field("zipcode", Schema.INT32_SCHEMA)
           .field("status", Schema.INT32_SCHEMA)
+          .field("mtime",Schema.STRING_SCHEMA)
           .build();
 
         final Schema valueSchema = SchemaBuilder.struct().name("record").version(1)
@@ -78,6 +80,7 @@ public class TestHbaseSinkTask {
               .put("name", null)
               .put("id", i)
               .put("zipcode", 95050 + i)
+              .put("mtime","2017-06-02T11:06:55+08:00")
               .put("status", 400 + i);
             final Struct record = new Struct(valueSchema).put("after", data).put("op","c");
             Struct key =  new Struct(keySchema).put("id",i);
@@ -110,12 +113,14 @@ public class TestHbaseSinkTask {
                 int rowId = Bytes.toInt(result.getRow());
                 String url = Bytes.toString(result.getValue(Bytes.toBytes(columnFamily), Bytes.toBytes("url")));
                 String name = Bytes.toString(result.getValue(Bytes.toBytes(columnFamily), Bytes.toBytes("name")));
+                Long time = Bytes.toLong(result.getValue(Bytes.toBytes(columnFamily), Bytes.toBytes("mtime")));
+                System.out.println(time);
                 Assert.assertEquals(count + 1, rowId);
                 Assert.assertEquals("google.com", url);
                 Assert.assertEquals(null, name);
                 count++;
             }
-            Assert.assertEquals(noOfRecords-1, count);
+            Assert.assertEquals(noOfRecords - 1, count);
         }
     }
 

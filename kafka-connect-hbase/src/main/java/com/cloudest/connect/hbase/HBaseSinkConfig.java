@@ -1,13 +1,23 @@
 package com.cloudest.connect.hbase;
 
+import com.cloudest.connect.hbase.transformer.Transformer;
+import org.apache.commons.collections.MapUtils;
+import org.apache.commons.lang.StringUtils;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
+import org.apache.kafka.common.utils.Utils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.util.HashMap;
 import java.util.Map;
 
 public class HBaseSinkConfig extends AbstractConfig {
+
+    private static final Logger logger = LoggerFactory.getLogger(HBaseSinkConfig.class);
+
 
     public static final String DATA_FIELD_CONFIG = "data.field";
     public static final String DATA_FIELD_DOC = "Name of the field where the record data nests.";
@@ -32,9 +42,15 @@ public class HBaseSinkConfig extends AbstractConfig {
     public static final String HBASE_TABLE_NAME_DOC = "HBase table name";
     public static final String HBASE_TABLE_NAME_DEFAULT = "";
 
+    public static final String FIELDS_TRANSFORMERS_CONFIG = "field.transformers";
+    public static final String FIELDS_TRANSFORMERS_DOC = "field transformer mapping: field1=transformerClass1,field2=transformerClass2,...";
+    public static final String FIELDS_TRANSFORMERS_DEFAULT = "";
+
     private String[] rowkeyColumns;
 
     private static ConfigDef config = new ConfigDef();
+
+    private Map<String, Transformer> transformerMapping = new HashMap<>();
 
     static {
 
@@ -46,6 +62,7 @@ public class HBaseSinkConfig extends AbstractConfig {
         config.define(HBASE_COLUMN_FAMILY_CONFIG, Type.STRING, HBASE_COLUMN_FAMILY_DEFAULT, Importance.HIGH, HBASE_COLUMN_FAMILY_DOC);
         config.define(HBASE_TABLE_NAME_CONFIG, Type.STRING, HBASE_TABLE_NAME_DEFAULT, Importance.HIGH, HBASE_TABLE_NAME_DOC);
 
+        config.define(FIELDS_TRANSFORMERS_CONFIG, Type.STRING, FIELDS_TRANSFORMERS_DEFAULT, Importance.HIGH, FIELDS_TRANSFORMERS_DOC); // add by terry
     }
     public static ConfigDef getConfig() {
         return config;
@@ -55,6 +72,7 @@ public class HBaseSinkConfig extends AbstractConfig {
         super(config, originals);
 
         this.rowkeyColumns = getString(HBASE_ROWKEY_COLUMNS_CONFIG).split(",");
+        initTransformers();
     }
 
     public String[] getRowkeyColumns() {
@@ -80,4 +98,47 @@ public class HBaseSinkConfig extends AbstractConfig {
     public String getTableName() {
         return getString(HBASE_TABLE_NAME_CONFIG);
     }
+
+    public String getFieldsTransformers () {
+        return getString(FIELDS_TRANSFORMERS_CONFIG);
+    }
+
+    public Map<String, Transformer> getTransformerMapping() {
+        return transformerMapping;
+    }
+
+    private void initTransformers() {
+        String transformerMappingStr = getFieldsTransformers();
+        if (StringUtils.isNotBlank(transformerMappingStr)) {
+            Map<String, String> fieldTransformers = parseFieldTransformer(transformerMappingStr);
+            if (MapUtils.isNotEmpty(fieldTransformers)){
+                for (String fieldName: fieldTransformers.keySet()){
+                    try {
+                        transformerMapping.put(fieldName, (Transformer) Utils.newInstance(Class.forName(fieldTransformers.get(fieldName))));
+                    } catch (ClassNotFoundException e) {
+                        logger.error("class not found:{}", fieldTransformers.get(fieldName), e);
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
+        }
+    }
+
+    private Map<String, String> parseFieldTransformer(String transformerMappingStr) {
+        Map<String, String> fieldTransformers = new HashMap<>();
+        if (StringUtils.isNotBlank(transformerMappingStr)) {
+            String[] keyValues = StringUtils.split(transformerMappingStr, ",");
+            if (keyValues != null && keyValues.length > 0) {
+                for (String keyValue : keyValues) {
+                    if (StringUtils.contains(keyValue, "=")) {
+                        String[] keyAndValue = StringUtils.split(keyValue, "=");
+                        fieldTransformers.put(keyAndValue[0], keyAndValue[1]);
+                    }
+                }
+            }
+        }
+        return fieldTransformers;
+    }
+
+
 }
