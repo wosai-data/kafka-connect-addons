@@ -32,7 +32,10 @@ public class TS8601ToLongTransformer implements Transformer<String, Long> {
         try {
             return GMT_SDF.parse(oType).getTime();
         } catch (ParseException e) {
-            logger.error("parse ISO8601 time fail. input string is {}.", oType, e);
+            logger.error("Parse ISO8601 time get parseException. input string is {}.", oType, e);
+            return null;
+        } catch (Exception e1) {  // for numberFormatException
+            logger.error("ISO8601 time fail. input string is {}.", oType, e1);
             return null;
         }
 
