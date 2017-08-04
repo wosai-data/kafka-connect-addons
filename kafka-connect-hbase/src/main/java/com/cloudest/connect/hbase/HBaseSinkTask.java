@@ -59,7 +59,10 @@ public class HBaseSinkTask extends SinkTask {
                 } else {
                     String op = payload.getString("op");
                     if (StringUtils.equals("u", op) || StringUtils.equals("c", op)) {  // handle create and update
-                        hBaseClient.write(tableName, toMutations(extractData(record)));
+                        List<Mutation> mutations = toMutations(extractData(record));
+                        if ( mutations != null && mutations.size() > 0 ) {
+                            hBaseClient.write(tableName, mutations);
+                        }
                     }
                 }
 
@@ -316,6 +319,8 @@ public class HBaseSinkTask extends SinkTask {
 
     private List<Mutation> toMutations(Struct data) throws IOException {
         byte[] rowKey = rowkey(data);
+        if (rowKey == null || rowKey.length == 0)   // for data that has't not primary key
+            return null;
         Put put = new Put(rowKey);
         Delete delete = new Delete(rowKey);
 
