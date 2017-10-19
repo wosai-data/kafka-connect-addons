@@ -187,22 +187,22 @@ public class ElasticsearchWriter {
             try {
                 SinkableRecord sinkableRecord = null;
                 Key key = extractKey(record);
-                if (!existingMappings.contains(key.index + "." + key.type)) {
-                    try {
-                        if (Mapping.getMapping(client, key.index, key.type) == null) {
-                            throw new ConnectException(
-                                    "No mapping was found for index: " + key.index + " and type: " + key.type
-                                            + ", please create mapping in elasticsearch first"
-                            );
-                        }
-                    } catch (IOException e) {
-                        throw new ConnectException(
-                                "Failed to retrieve mapping for index: " + key.index + " and type: " + key.type
-                                , e
-                        );
-                    }
-                    existingMappings.add(key.index + "." + key.type);
-                }
+//                if (!existingMappings.contains(key.index + "." + key.type)) {
+//                    try {
+//                        if (Mapping.getMapping(client, key.index, key.type) == null) {
+//                            throw new ConnectException(
+//                                    "No mapping was found for index: " + key.index + " and type: " + key.type
+//                                            + ", please create mapping in elasticsearch first"
+//                            );
+//                        }
+//                    } catch (IOException e) {
+//                        throw new ConnectException(
+//                                "Failed to retrieve mapping for index: " + key.index + " and type: " + key.type
+//                                , e
+//                        );
+//                    }
+//                    existingMappings.add(key.index + "." + key.type);
+//                }
                 Long version = extractDataVersion(record);
                 Object payload = record.value();
                 if (payload != null) {
@@ -255,7 +255,7 @@ public class ElasticsearchWriter {
         // Id
         String delimiter = idDelimiter;
         if (idDelimiter == null) {
-            idDelimiter = ElasticsearchSinkConnectorConstants.DEFAULT_ID_DELIMITER;
+            idDelimiter = ElasticsearchSinkConnectorConstants.ID_DELIMITER_DEFAULT;
         }
         Object keyObj = sinkRecord.key();
         if (keyObj != null && keyObj instanceof Struct) {
@@ -335,7 +335,7 @@ public class ElasticsearchWriter {
 
         String field = dataField;
         if (field == null) {
-            field = ElasticsearchSinkConnectorConstants.BINLOG_AFTER_FIELD;
+            field = ElasticsearchSinkConnectorConstants.DATA_FIELD_DEFAULT;
         }
         if (field.isEmpty()) { // if data field is specified as empty, return the value itself as data
             return (Struct) value;
@@ -348,7 +348,7 @@ public class ElasticsearchWriter {
         // Version field name
         String field = versionField;
         if (field == null || field.isEmpty()) {
-            field = ElasticsearchSinkConnectorConstants.DEFAULT_VERSION_FIELD;
+            field = ElasticsearchSinkConnectorConstants.VERSION_FIELD_DEFAULT;
         }
         // Read version from data
         Long version = null;

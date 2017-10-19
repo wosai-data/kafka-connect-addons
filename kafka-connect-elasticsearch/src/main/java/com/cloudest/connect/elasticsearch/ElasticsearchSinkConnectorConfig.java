@@ -9,21 +9,25 @@ import org.apache.kafka.common.config.ConfigDef.Width;
 import java.util.Map;
 
 public class ElasticsearchSinkConnectorConfig extends AbstractConfig {
+    // Connector configs
     public static final String CONNECTION_URL_CONFIG = "connection.url";
     private static final String CONNECTION_URL_DOC =
             "List of Elasticsearch HTTP connection URLs e.g. ``http://eshost1:9200,"
                     + "http://eshost2:9200``.";
     public static final String BATCH_SIZE_CONFIG = "batch.size";
     private static final String BATCH_SIZE_DOC =
-            "The number of records to process as a batch when writing to Elasticsearch.";
+            "The number of records to process as a batch when writing to Elasticsearch. " +
+                    "Default is " + ElasticsearchSinkConnectorConstants.BATCH_SIZE_DEFAULT + ".";
     public static final String MAX_IN_FLIGHT_REQUESTS_CONFIG = "max.in.flight.requests";
     private static final String MAX_IN_FLIGHT_REQUESTS_DOC =
             "The maximum number of indexing requests that can be in-flight to Elasticsearch before "
-                    + "blocking further requests.";
+                    + "blocking further requests. "
+                    + "Default is " + ElasticsearchSinkConnectorConstants.MAX_IN_FLIGHT_REQUESTS_DEFAULT + ".";
     public static final String MAX_BUFFERED_RECORDS_CONFIG = "max.buffered.records";
     private static final String MAX_BUFFERED_RECORDS_DOC =
             "The maximum number of records each task will buffer before blocking acceptance of more "
-                    + "records. This config can be used to limit the memory usage for each task.";
+                    + "records. This config can be used to limit the memory usage for each task. "
+                    + "Default is " + ElasticsearchSinkConnectorConstants.MAX_BUFFERED_RECORDS_DEFAULT + ".";
     public static final String LINGER_MS_CONFIG = "linger.ms";
     private static final String LINGER_MS_DOC =
             "Linger time in milliseconds for batching.\n"
@@ -34,23 +38,27 @@ public class ElasticsearchSinkConnectorConfig extends AbstractConfig {
                     + "benefit from bulk indexing. This setting helps accomplish that - when a pending batch is"
                     + " not full, rather than immediately sending it out the task will wait up to the given "
                     + "delay to allow other records to be added so that they can be batched into a single "
-                    + "request.";
+                    + "request. Default is " + ElasticsearchSinkConnectorConstants.LINGER_MS_DEFAULT + ".";
     public static final String FLUSH_TIMEOUT_MS_CONFIG = "flush.timeout.ms";
     private static final String FLUSH_TIMEOUT_MS_DOC =
             "The timeout in milliseconds to use for periodic flushing, and when waiting for buffer "
                     + "space to be made available by completed requests as records are added. If this timeout "
-                    + "is exceeded the task will fail.";
+                    + "is exceeded the task will fail. "
+                    + "Default is " + ElasticsearchSinkConnectorConstants.FLUSH_TIMEOUT_MS_DEFAULT + ".";
     public static final String MAX_RETRIES_CONFIG = "max.retries";
     private static final String MAX_RETRIES_DOC =
             "The maximum number of retries that are allowed for failed indexing requests. If the retry "
-                    + "attempts are exhausted the task will fail.";
+                    + "attempts are exhausted the task will fail. "
+                    + "Default is " + ElasticsearchSinkConnectorConstants.MAX_RETRIES_DEFAULT + ".";
     public static final String RETRY_BACKOFF_MS_CONFIG = "retry.backoff.ms";
     private static final String RETRY_BACKOFF_MS_DOC =
             "How long to wait in milliseconds before attempting the first retry of a failed indexing "
                     + "request. Upon a failure, this connector may wait up to twice as long as the previous "
                     + "wait, up to the maximum number of retries. "
-                    + "This avoids retrying in a tight loop under failure scenarios.";
+                    + "This avoids retrying in a tight loop under failure scenarios. "
+                    + "Default is " + ElasticsearchSinkConnectorConstants.RETRY_BACKOFF_MS + ".";
 
+    // Conversion configs
     public static final String TOPIC_INDEX_MAP_CONFIG = "topic.index.map";
     private static final String TOPIC_INDEX_MAP_DOC =
             "A map from Kafka topic name to the destination Elasticsearch index, represented as a list "
@@ -74,17 +82,6 @@ public class ElasticsearchSinkConnectorConfig extends AbstractConfig {
     public static final String DROP_INVALID_MESSAGE_CONFIG = "drop.invalid.message";
     private static final String DROP_INVALID_MESSAGE_DOC =
             "Whether to drop kafka message when it cannot be converted to output message.";
-
-    public static final String COMPACT_MAP_ENTRIES_CONFIG = "compact.map.entries";
-    private static final String COMPACT_MAP_ENTRIES_DOC =
-            "Defines how map entries with string keys within record values should be written to JSON. "
-                    + "When this is set to ``true``, these entries are written compactly as "
-                    + "``\"entryKey\": \"entryValue\"``. "
-                    + "Otherwise, map entries with string keys are written as a nested document "
-                    + "``{\"key\": \"entryKey\", \"value\": \"entryValue\"}``. "
-                    + "All map entries with non-string keys are always written as nested documents. "
-                    + "Prior to 3.3.0, this connector always wrote map entries as nested documents, "
-                    + "so set this to ``false`` to use that older behavior.";
 
     public static final ConfigDef CONFIG = baseConfigDef();
 
@@ -110,7 +107,7 @@ public class ElasticsearchSinkConnectorConfig extends AbstractConfig {
         ).define(
                 BATCH_SIZE_CONFIG,
                 Type.INT,
-                2000,
+                ElasticsearchSinkConnectorConstants.BATCH_SIZE_DEFAULT,
                 Importance.MEDIUM,
                 BATCH_SIZE_DOC,
                 group,
@@ -120,17 +117,17 @@ public class ElasticsearchSinkConnectorConfig extends AbstractConfig {
         ).define(
                 MAX_IN_FLIGHT_REQUESTS_CONFIG,
                 Type.INT,
-                5,
+                ElasticsearchSinkConnectorConstants.MAX_IN_FLIGHT_REQUESTS_DEFAULT,
                 Importance.MEDIUM,
                 MAX_IN_FLIGHT_REQUESTS_DOC,
                 group,
-                5,
+                ++order,
                 Width.SHORT,
                 "Max In-flight Requests"
         ).define(
                 MAX_BUFFERED_RECORDS_CONFIG,
                 Type.INT,
-                20000,
+                ElasticsearchSinkConnectorConstants.MAX_BUFFERED_RECORDS_DEFAULT,
                 Importance.LOW,
                 MAX_BUFFERED_RECORDS_DOC,
                 group,
@@ -140,7 +137,7 @@ public class ElasticsearchSinkConnectorConfig extends AbstractConfig {
         ).define(
                 LINGER_MS_CONFIG,
                 Type.LONG,
-                1L,
+                ElasticsearchSinkConnectorConstants.LINGER_MS_DEFAULT,
                 Importance.LOW,
                 LINGER_MS_DOC,
                 group,
@@ -150,7 +147,7 @@ public class ElasticsearchSinkConnectorConfig extends AbstractConfig {
         ).define(
                 FLUSH_TIMEOUT_MS_CONFIG,
                 Type.LONG,
-                10000L,
+                ElasticsearchSinkConnectorConstants.FLUSH_TIMEOUT_MS_DEFAULT,
                 Importance.LOW,
                 FLUSH_TIMEOUT_MS_DOC,
                 group,
@@ -160,7 +157,7 @@ public class ElasticsearchSinkConnectorConfig extends AbstractConfig {
         ).define(
                 MAX_RETRIES_CONFIG,
                 Type.INT,
-                5,
+                ElasticsearchSinkConnectorConstants.MAX_RETRIES_DEFAULT,
                 Importance.LOW,
                 MAX_RETRIES_DOC,
                 group,
@@ -170,7 +167,7 @@ public class ElasticsearchSinkConnectorConfig extends AbstractConfig {
         ).define(
                 RETRY_BACKOFF_MS_CONFIG,
                 Type.LONG,
-                100L,
+                ElasticsearchSinkConnectorConstants.RETRY_BACKOFF_MS,
                 Importance.LOW,
                 RETRY_BACKOFF_MS_DOC,
                 group,
@@ -184,20 +181,10 @@ public class ElasticsearchSinkConnectorConfig extends AbstractConfig {
         final String group = "Data Conversion";
         int order = 0;
         configDef.define(
-                COMPACT_MAP_ENTRIES_CONFIG,
-                Type.BOOLEAN,
-                true,
-                Importance.LOW,
-                COMPACT_MAP_ENTRIES_DOC,
-                group,
-                ++order,
-                Width.SHORT,
-                "Compact Map Entries"
-        ).define(
                 TOPIC_INDEX_MAP_CONFIG,
                 Type.LIST,
                 "",
-                Importance.LOW,
+                Importance.MEDIUM,
                 TOPIC_INDEX_MAP_DOC,
                 group,
                 ++order,
@@ -207,7 +194,7 @@ public class ElasticsearchSinkConnectorConfig extends AbstractConfig {
                 TOPIC_TYPE_MAP_CONFIG,
                 Type.LIST,
                 "",
-                Importance.LOW,
+                Importance.MEDIUM,
                 TOPIC_TYPE_MAP_DOC,
                 group,
                 ++order,
@@ -216,17 +203,17 @@ public class ElasticsearchSinkConnectorConfig extends AbstractConfig {
         ).define(
                 ID_DELIMITER_CONFIG,
                 Type.STRING,
-                ElasticsearchSinkConnectorConstants.DEFAULT_ID_DELIMITER,
+                ElasticsearchSinkConnectorConstants.ID_DELIMITER_DEFAULT,
                 Importance.MEDIUM,
                 ID_DELIMITER_DOC,
                 group,
                 ++order,
                 Width.SHORT,
-                "Id delimiter for converting multi-column primary key"
+                "ID Delimiter"
         ).define(
                 DATA_FIELD_CONFIG,
                 Type.STRING,
-                ElasticsearchSinkConnectorConstants.BINLOG_AFTER_FIELD,
+                ElasticsearchSinkConnectorConstants.DATA_FIELD_DEFAULT,
                 Importance.HIGH,
                 DATA_FIELD_DOC,
                 group,
@@ -236,7 +223,7 @@ public class ElasticsearchSinkConnectorConfig extends AbstractConfig {
         ).define(
                 VERSION_FIELD_CONFIG,
                 Type.STRING,
-                ElasticsearchSinkConnectorConstants.DEFAULT_VERSION_FIELD,
+                ElasticsearchSinkConnectorConstants.VERSION_FIELD_DEFAULT,
                 Importance.MEDIUM,
                 VERSION_FIELD_DOC,
                 group,
