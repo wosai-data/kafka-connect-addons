@@ -262,6 +262,7 @@ public class ElasticsearchWriter {
             Struct key = (Struct) keyObj;
             for (Field field : key.schema().fields()) {
                 Schema.Type fieldType = key.schema().field(field.name()).schema().type();
+                if (!fieldType.isPrimitive()) continue;
                 switch (fieldType) {
                     case STRING:
                         id.append(key.getString(field.name()))
@@ -306,6 +307,8 @@ public class ElasticsearchWriter {
             if (id.length() > 0) {
                 id.setLength(id.length() - 1);
             }
+        } else if (keyObj != null && keyObj instanceof String) {
+            id = id.append((String) keyObj);
         }
 
         if (index == null || index.isEmpty()) {

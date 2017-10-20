@@ -249,5 +249,6 @@ public class ElasticsearchSinkConnectorConfig extends AbstractConfig {
     public static void main(String[] args) {
 //        System.out.println(CONFIG.toEnrichedRst());
         System.out.println(CONFIG.toRst());
+        System.out.println(LINGER_MS_DOC);
     }
 }

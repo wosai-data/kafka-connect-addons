@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <name>Kafka Connect ElasticSearch Connector</name>
-    <artifactId>kafka-connect-elasticsearch</artifactId>
+    <artifactId>kafka-connect-binlog-elasticsearch</artifactId>
     <version>1.0-SNAPSHOT</version>
 
     <parent>
