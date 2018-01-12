@@ -44,6 +44,15 @@ public class ElasticsearchSinkTask extends SinkTask {
             String idDelimiter = config.getString(ElasticsearchSinkConnectorConfig.ID_DELIMITER_CONFIG);
             String dataField = config.getString(ElasticsearchSinkConnectorConfig.DATA_FIELD_CONFIG);
             String versionField = config.getString(ElasticsearchSinkConnectorConfig.VERSION_FIELD_CONFIG);
+            String sinkOperation = config.getString(ElasticsearchSinkConnectorConfig.SINK_ACTION_CONFIG);
+            String sinkFieldPaths = config.getString(ElasticsearchSinkConnectorConfig.SINK_FIELD_PATHS_CONFIG);
+            String sinkFieldPathsArg = config.getString(ElasticsearchSinkConnectorConfig.SINK_FIELD_PATHS_ARG_CONFIG);
+            String indexKeyExpression = config.getString(ElasticsearchSinkConnectorConfig.INDEX_KEY_EXPRESSION_CONFIG);
+            String updateScriptId = config.getString(ElasticsearchSinkConnectorConfig.UPDATE_SCRIPT_ID_CONFIG);
+            String updateOnDeleteScriptId = config.getString(ElasticsearchSinkConnectorConfig.UPDATE_ON_DELETE_CONFIG);
+            List<String> stringListFields = config.getList(ElasticsearchSinkConnectorConfig.STRING_LIST_FIELDS_CONFIG);
+            List<String> integerListFields = config.getList(ElasticsearchSinkConnectorConfig.INTEGER_LIST_FIELDS_CONFIG);
+            List<String> bytesToStringFields = config.getList(ElasticsearchSinkConnectorConfig.BYTES_TO_STRING_FIELDS_CONFIG);
 
             long flushTimeoutMs =
                     config.getLong(ElasticsearchSinkConnectorConfig.FLUSH_TIMEOUT_MS_CONFIG);
@@ -61,6 +70,11 @@ public class ElasticsearchSinkTask extends SinkTask {
                     config.getInt(ElasticsearchSinkConnectorConfig.MAX_RETRIES_CONFIG);
             boolean dropInvalidMessage =
                     config.getBoolean(ElasticsearchSinkConnectorConfig.DROP_INVALID_MESSAGE_CONFIG);
+            int readTimeoutMs =
+                    config.getInt(ElasticsearchSinkConnectorConfig.READ_TIMEOUT_MS_CONFIG);
+            int connTimeoutMs =
+                    config.getInt(ElasticsearchSinkConnectorConfig.CONN_TIMEOUT_MS_CONFIG);
+            int versionConflictRetry = config.getInt(ElasticsearchSinkConnectorConfig.VERSION_CONFLICT_RETRIES_CONFIG);
 
             // Calculate the maximum possible backoff time ...
             long maxRetryBackoffMs = RetryUtil.computeRetryWaitTimeInMillis(maxRetry, retryBackoffMs);
@@ -82,6 +96,8 @@ public class ElasticsearchSinkTask extends SinkTask {
                 factory.setHttpClientConfig(
                         new HttpClientConfig.Builder(addresses)
                                 .multiThreaded(true)
+                                .readTimeout(readTimeoutMs)
+                                .connTimeout(connTimeoutMs)
                                 .build()
                 );
                 this.client = factory.getObject();
@@ -91,6 +107,16 @@ public class ElasticsearchSinkTask extends SinkTask {
                     .setIdDelimiter(idDelimiter)
                     .setDataField(dataField)
                     .setVersionField(versionField)
+                    .setSinkAction(sinkOperation)
+                    .setSinkFieldPaths(sinkFieldPaths)
+                    .setSinkFieldPathsArg(sinkFieldPathsArg)
+                    .setIndexKeyExpression(indexKeyExpression)
+                    .setUpdateScriptId(updateScriptId)
+                    .setUpdateOnDeleteScriptId(updateOnDeleteScriptId)
+                    .setStringListFields(stringListFields)
+                    .setIntegerListFields(integerListFields)
+                    .setBytesToStringFields(bytesToStringFields)
+                    .setVersionConflictRetries(versionConflictRetry)
                     .setTopicToIndexMap(topicToIndexMap)
                     .setTopicToTypeMap(topicToTypeMap)
                     .setFlushTimeoutMs(flushTimeoutMs)

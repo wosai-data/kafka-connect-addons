@@ -13,9 +13,15 @@ public class ElasticsearchSinkConnectorConstants {
     public static final long FLUSH_TIMEOUT_MS_DEFAULT = 10000L;
     public static final int MAX_RETRIES_DEFAULT = 5;
     public static final long RETRY_BACKOFF_MS = 100L;
+    public static final int READ_TIMEOUT_MS_DEFAULT = 5000;
+    public static final int CONN_TIMEOUT_MS_DEFAULT = 5000;
+    public static final int VERSION_CONFLICT_RETRIES_DEFAULT = 3;
 
     public static final String DATA_FIELD_DEFAULT = "after";
     public static final String VERSION_FIELD_DEFAULT = "version";
+    public static final String SINK_ACTION_INDEX = "index";
+    public static final String SINK_ACTION_UPSERT = "upsert";
+    public static final String SINK_ACTION_DEFAULT = SINK_ACTION_INDEX;
     public static final String ID_DELIMITER_DEFAULT = ":";
 
     public static final String MAP_KEY = "key";

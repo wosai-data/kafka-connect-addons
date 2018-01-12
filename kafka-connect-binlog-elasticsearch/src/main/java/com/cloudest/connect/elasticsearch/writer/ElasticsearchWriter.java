@@ -2,7 +2,6 @@ package com.cloudest.connect.elasticsearch.writer;
 
 import com.cloudest.connect.elasticsearch.*;
 import com.cloudest.connect.elasticsearch.bulk.BulkProcessor;
-import io.searchbox.action.Action;
 import io.searchbox.client.JestClient;
 import io.searchbox.client.JestResult;
 import io.searchbox.indices.CreateIndex;
@@ -28,6 +27,16 @@ public class ElasticsearchWriter {
     private String dataField;
     private String versionField;
     private String idDelimiter;
+    private String sinkAction;
+    private String sinkFieldPaths;
+    private String sinkFieldPathsArg;
+    private String indexKeyExpression;
+    private String updateScriptId;
+    private String updateOnDeleteScriptId;
+    private List<String> stringListFields;
+    private List<String> integerListFields;
+    private List<String> bytesToStringFields;
+    private int versionConflictRetries;
     private final Map<String, String> topicToIndexMap;
     private final Map<String, String> topicToTypeMap;
     private final long flushTimeoutMs;
@@ -42,6 +51,16 @@ public class ElasticsearchWriter {
             String dataField,
             String versionField,
             String idDelimiter,
+            String sinkAction,
+            String sinkFieldPaths,
+            String sinkFieldPathsArg,
+            String indexKeyExpression,
+            String updateScriptId,
+            String updateOnDeleteScriptId,
+            List<String> stringListFields,
+            List<String> integerListFields,
+            List<String> bytesToStringFields,
+            int versionConflictRetries,
             Map<String, String> topicToIndexMap,
             Map<String, String> topicToTypeMap,
             long flushTimeoutMs,
@@ -57,6 +76,16 @@ public class ElasticsearchWriter {
         this.dataField = dataField;
         this.versionField = versionField;
         this.idDelimiter = idDelimiter;
+        this.sinkAction = sinkAction;
+        this.sinkFieldPaths = sinkFieldPaths;
+        this.sinkFieldPathsArg = sinkFieldPathsArg;
+        this.indexKeyExpression = indexKeyExpression;
+        this.updateScriptId = updateScriptId;
+        this.updateOnDeleteScriptId = updateOnDeleteScriptId;
+        this.stringListFields = stringListFields;
+        this.integerListFields = integerListFields;
+        this.bytesToStringFields = bytesToStringFields;
+        this.versionConflictRetries = versionConflictRetries;
         this.topicToIndexMap = topicToIndexMap;
         this.topicToTypeMap = topicToTypeMap;
         this.flushTimeoutMs = flushTimeoutMs;
@@ -78,10 +107,21 @@ public class ElasticsearchWriter {
     }
 
     public static class Builder {
+
         private final JestClient client;
         private String dataField;
         private String versionField;
         private String idDelimiter;
+        private String sinkAction;
+        private String sinkFieldPaths;
+        private String sinkFieldPathsArg;
+        private String indexKeyExpression;
+        private String updateScriptId;
+        private String updateOnDeleteScriptId;
+        private List<String> stringListFields;
+        private List<String> integerListFields;
+        private List<String> bytesToStringFields;
+        private int versionConflictRetries;
         private Map<String, String> topicToIndexMap = new HashMap<>();
         private Map<String, String> topicToTypeMap = new HashMap<>();
         private long flushTimeoutMs;
@@ -109,6 +149,51 @@ public class ElasticsearchWriter {
 
         public Builder setIdDelimiter(String idDelimiter) {
             this.idDelimiter = idDelimiter;
+            return this;
+        }
+
+        public Builder setSinkAction(String sinkAction) {
+            this.sinkAction = sinkAction;
+            return this;
+        }
+
+        public Builder setSinkFieldPaths(String sinkFieldPaths) {
+            this.sinkFieldPaths = sinkFieldPaths;
+            return this;
+        }
+
+        public Builder setSinkFieldPathsArg(String sinkFieldPathsArg) {
+            this.sinkFieldPathsArg = sinkFieldPathsArg;
+            return this;
+        }
+
+        public Builder setIndexKeyExpression(String indexKeyExpression) {
+            this.indexKeyExpression = indexKeyExpression;
+            return this;
+        }
+
+        public Builder setUpdateScriptId(String updateScriptId) {
+            this.updateScriptId = updateScriptId;
+            return this;
+        }
+
+        public Builder setStringListFields(List<String> stringListFields) {
+            this.stringListFields = stringListFields;
+            return this;
+        }
+
+        public Builder setIntegerListFields(List<String> integerListFields) {
+            this.integerListFields = integerListFields;
+            return this;
+        }
+
+        public Builder setBytesToStringFields(List<String> bytesToStringFields) {
+            this.bytesToStringFields = bytesToStringFields;
+            return this;
+        }
+
+        public Builder setVersionConflictRetries(int versionConflictRetries) {
+            this.versionConflictRetries = versionConflictRetries;
             return this;
         }
 
@@ -157,6 +242,11 @@ public class ElasticsearchWriter {
             return this;
         }
 
+        public Builder setUpdateOnDeleteScriptId(String updateOnDeleteScriptId) {
+            this.updateOnDeleteScriptId = updateOnDeleteScriptId;
+            return this;
+        }
+
         public Builder setDropInvalidMessage(boolean dropInvalidMessage) {
             this.dropInvalidMessage = dropInvalidMessage;
             return this;
@@ -168,6 +258,16 @@ public class ElasticsearchWriter {
                     dataField,
                     versionField,
                     idDelimiter,
+                    sinkAction,
+                    sinkFieldPaths,
+                    sinkFieldPathsArg,
+                    indexKeyExpression,
+                    updateScriptId,
+                    updateOnDeleteScriptId,
+                    stringListFields,
+                    integerListFields,
+                    bytesToStringFields,
+                    versionConflictRetries,
                     topicToIndexMap,
                     topicToTypeMap,
                     flushTimeoutMs,
@@ -180,13 +280,13 @@ public class ElasticsearchWriter {
                     dropInvalidMessage
             );
         }
+
     }
 
     public void write(Collection<SinkRecord> records) {
         for (SinkRecord record : records) {
             try {
                 SinkableRecord sinkableRecord = null;
-                Key key = extractKey(record);
 //                if (!existingMappings.contains(key.index + "." + key.type)) {
 //                    try {
 //                        if (Mapping.getMapping(client, key.index, key.type) == null) {
@@ -207,11 +307,30 @@ public class ElasticsearchWriter {
                 Object payload = record.value();
                 if (payload != null) {
                     Struct data = extractData(record);
-                    if (data != null) {
-                        sinkableRecord = converter.convertToSinkableRecord(data, SinkableRecord.Operation.INDEX, key, version);
+                    if (data == null) return;
+                    Key key = extractKey(record);
+                    if (ElasticsearchSinkConnectorConstants.SINK_ACTION_INDEX.equals(this.sinkAction)) {
+                        Map<String, Object> conversionConfigs = new HashMap<>();
+                        conversionConfigs.put(ElasticsearchSinkConnectorConfig.STRING_LIST_FIELDS_CONFIG, stringListFields);
+                        conversionConfigs.put(ElasticsearchSinkConnectorConfig.INTEGER_LIST_FIELDS_CONFIG, integerListFields);
+                        conversionConfigs.put(ElasticsearchSinkConnectorConfig.BYTES_TO_STRING_FIELDS_CONFIG, bytesToStringFields);
+                        sinkableRecord = converter.convertToSinkableRecord(data, SinkableRecord.Action.INDEX, key, version, conversionConfigs);
+                    } else if (ElasticsearchSinkConnectorConstants.SINK_ACTION_UPSERT.equals(this.sinkAction)) {
+                        Map<String, Object> conversionConfigs = new HashMap<>();
+                        conversionConfigs.put(ElasticsearchSinkConnectorConfig.SINK_FIELD_PATHS_CONFIG, sinkFieldPaths);
+                        conversionConfigs.put(ElasticsearchSinkConnectorConfig.SINK_FIELD_PATHS_ARG_CONFIG, sinkFieldPathsArg);
+                        conversionConfigs.put(ElasticsearchSinkConnectorConfig.UPDATE_SCRIPT_ID_CONFIG, updateScriptId);
+                        conversionConfigs.put(ElasticsearchSinkConnectorConfig.STRING_LIST_FIELDS_CONFIG, stringListFields);
+                        conversionConfigs.put(ElasticsearchSinkConnectorConfig.INTEGER_LIST_FIELDS_CONFIG, integerListFields);
+                        conversionConfigs.put(ElasticsearchSinkConnectorConfig.BYTES_TO_STRING_FIELDS_CONFIG, bytesToStringFields);
+                        conversionConfigs.put(ElasticsearchSinkConnectorConfig.VERSION_CONFLICT_RETRIES_CONFIG, String.valueOf(versionConflictRetries));
+                        sinkableRecord = converter.convertToSinkableRecord(data, SinkableRecord.Action.UPSERT, key, version, conversionConfigs);
                     }
-                } else { // for tombstone event, delete the document
-                    sinkableRecord = converter.convertToSinkableRecord(null, SinkableRecord.Operation.DELETE, key, version);
+                } else if (ElasticsearchSinkConnectorConstants.SINK_ACTION_INDEX.equals(this.sinkAction)) { // for tombstone event, delete the document
+                    Key key = extractKey(record);
+                    Map<String, Object> conversionConfigs = new HashMap<>();
+                    conversionConfigs.put(ElasticsearchSinkConnectorConfig.UPDATE_ON_DELETE_CONFIG, updateOnDeleteScriptId);
+                    sinkableRecord = converter.convertToSinkableRecord(null, SinkableRecord.Action.DELETE, key, version, conversionConfigs);
                 }
                 if (sinkableRecord != null) {
                     bulkProcessor.add(sinkableRecord, flushTimeoutMs);
@@ -253,62 +372,70 @@ public class ElasticsearchWriter {
         }
 
         // Id
-        String delimiter = idDelimiter;
-        if (idDelimiter == null) {
-            idDelimiter = ElasticsearchSinkConnectorConstants.ID_DELIMITER_DEFAULT;
-        }
-        Object keyObj = sinkRecord.key();
-        if (keyObj != null && keyObj instanceof Struct) {
-            Struct key = (Struct) keyObj;
-            for (Field field : key.schema().fields()) {
-                Schema.Type fieldType = key.schema().field(field.name()).schema().type();
-                if (!fieldType.isPrimitive()) continue;
-                switch (fieldType) {
-                    case STRING:
-                        id.append(key.getString(field.name()))
-                                .append(delimiter);
-                        break;
-                    case BYTES:
-                        id.append(new String(key.getBytes(field.name())))
-                                .append(delimiter);
-                        break;
-                    case BOOLEAN:
-                        id.append(key.getBoolean(field.name()))
-                                .append(delimiter);
-                        break;
-                    case FLOAT32:
-                        id.append(key.getFloat32(field.name()))
-                                .append(delimiter);
-                        break;
-                    case FLOAT64:
-                        id.append(key.getFloat64(field.name()))
-                                .append(delimiter);
-                        break;
-                    case INT8:
-                        id.append(key.getInt8(field.name()))
-                                .append(delimiter);
-                        break;
-                    case INT16:
-                        id.append(key.getInt16(field.name()))
-                                .append(delimiter);
-                        break;
-                    case INT32:
-                        id.append(key.getInt32(field.name()))
-                                .append(delimiter);
-                        break;
-                    case INT64:
-                        id.append(key.getInt64(field.name()))
-                                .append(delimiter);
-                        break;
-                    default:
-                        break;
+        if (indexKeyExpression != null && !indexKeyExpression.isEmpty()
+                && ElasticsearchSinkConnectorConstants.SINK_ACTION_UPSERT.equals(this.sinkAction)) {
+            Struct data = extractData(sinkRecord);
+            if (data != null) {
+                id.append(StructUtil.evaluateFieldValue(data, indexKeyExpression));
+            }
+        } else {
+            String delimiter = idDelimiter;
+            if (idDelimiter == null) {
+                idDelimiter = ElasticsearchSinkConnectorConstants.ID_DELIMITER_DEFAULT;
+            }
+            Object keyObj = sinkRecord.key();
+            if (keyObj != null && keyObj instanceof Struct) {
+                Struct key = (Struct) keyObj;
+                for (Field field : key.schema().fields()) {
+                    Schema.Type fieldType = key.schema().field(field.name()).schema().type();
+                    if (!fieldType.isPrimitive()) continue;
+                    switch (fieldType) {
+                        case STRING:
+                            id.append(key.getString(field.name()))
+                                    .append(delimiter);
+                            break;
+                        case BYTES:
+                            id.append(new String(key.getBytes(field.name())))
+                                    .append(delimiter);
+                            break;
+                        case BOOLEAN:
+                            id.append(key.getBoolean(field.name()))
+                                    .append(delimiter);
+                            break;
+                        case FLOAT32:
+                            id.append(key.getFloat32(field.name()))
+                                    .append(delimiter);
+                            break;
+                        case FLOAT64:
+                            id.append(key.getFloat64(field.name()))
+                                    .append(delimiter);
+                            break;
+                        case INT8:
+                            id.append(key.getInt8(field.name()))
+                                    .append(delimiter);
+                            break;
+                        case INT16:
+                            id.append(key.getInt16(field.name()))
+                                    .append(delimiter);
+                            break;
+                        case INT32:
+                            id.append(key.getInt32(field.name()))
+                                    .append(delimiter);
+                            break;
+                        case INT64:
+                            id.append(key.getInt64(field.name()))
+                                    .append(delimiter);
+                            break;
+                        default:
+                            break;
+                    }
                 }
+                if (id.length() > 0) {
+                    id.setLength(id.length() - 1);
+                }
+            } else if (keyObj != null && keyObj instanceof String) {
+                id = id.append((String) keyObj);
             }
-            if (id.length() > 0) {
-                id.setLength(id.length() - 1);
-            }
-        } else if (keyObj != null && keyObj instanceof String) {
-            id = id.append((String) keyObj);
         }
 
         if (index == null || index.isEmpty()) {
@@ -416,8 +543,9 @@ public class ElasticsearchWriter {
         }
     }
 
+    @SuppressWarnings("unchecked")
     private boolean indexExists(String index) {
-        Action action = new IndicesExists.Builder(index).build();
+        io.searchbox.action.Action action = new IndicesExists.Builder(index).build();
         try {
             JestResult result = client.execute(action);
             return result.isSucceeded();
