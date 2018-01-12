@@ -57,6 +57,14 @@ public class ElasticsearchSinkConnectorConfig extends AbstractConfig {
                     + "wait, up to the maximum number of retries. "
                     + "This avoids retrying in a tight loop under failure scenarios. "
                     + "Default is " + ElasticsearchSinkConnectorConstants.RETRY_BACKOFF_MS + ".";
+    public static final String READ_TIMEOUT_MS_CONFIG = "read.timeout.ms";
+    private static final String READ_TIMEOUT_MS_DOC =
+            "How long to wait in milliseconds before throwing read timeout exception when requesting Elasticsearch. "
+                    + "Default is " + ElasticsearchSinkConnectorConstants.READ_TIMEOUT_MS_DEFAULT + ".";
+    public static final String CONN_TIMEOUT_MS_CONFIG = "conn.timeout.ms";
+    private static final String CONN_TIMEOUT_MS_DOC =
+            "How long to wait in milliseconds before throwing connection timeout exception when connecting Elasticsearch. "
+                    + "Default is " + ElasticsearchSinkConnectorConstants.CONN_TIMEOUT_MS_DEFAULT + ".";
 
     // Conversion configs
     public static final String TOPIC_INDEX_MAP_CONFIG = "topic.index.map";
@@ -79,6 +87,61 @@ public class ElasticsearchSinkConnectorConfig extends AbstractConfig {
     private static final String VERSION_FIELD_DOC =
             "The filed name from which record version will be extracted. " +
                     "The type of version field must be integer or long. Default is ``version``";
+    public static final String SINK_ACTION_CONFIG = "sink.action";
+    private static final String SINK_ACTION_DOC =
+            "The sink action to Elasticsearch for new binlog messages. Can be either ``index`` or ``upsert``. " +
+                    "Default is ``index``";
+    public static final String SINK_FIELD_PATHS_CONFIG = "sink.field.paths";
+    private static final String SINK_FIELD_PATHS_DOC =
+            "The document field paths to which the binlog struct will be sunk. Use ``.`` to denote a level of paths. " +
+                    "This config is affective only when " + SINK_ACTION_CONFIG + " is ``upsert``. " +
+                    "Default is empty which means the struct will be sunk to document root";
+    public static final String SINK_FIELD_PATHS_ARG_CONFIG = "sink.field.paths.arg";
+    private static final String SINK_FIELD_PATHS_ARG_DOC =
+            "The argument which will be evaluated along with " + SINK_FIELD_PATHS_CONFIG + " to generate fully qualified field paths. " +
+                    "This config is affective only when " + SINK_FIELD_PATHS_CONFIG + " is not empty and contains a placeholder ``{}``. " +
+                    "Format is ``binlog_field_name$delimiter$index``. " +
+                    "For example, account_id$:$0 will extract the value of account_id from binlog messages, " +
+                    "split the value with ':' and return the first element in the list. " +
+                    "Thus the config will not be able to process field delimited by dollar sign. " +
+                    "Use ``binlog_field_name$$`` to extract a field as a whole. " +
+                    "Default is empty";
+    public static final String INDEX_KEY_EXPRESSION_CONFIG = "index.key.exp";
+    private static final String INDEX_KEY_EXPRESSION_DOC =
+            "The expression which will be evaluated and used as the index key to Elasticsearch. " +
+                    "If this configuration is specified, it will overwrite the key extracted from binlog messages. " +
+                    "Format is ``binlog_field_name$delimiter$index``. " +
+                    "For example, account_id$:$0 will extract the value of account_id from binlog messages, " +
+                    "split the value with ':' and return the first element in the list. " +
+                    "Thus the config will not be able to process field delimited by dollar sign. " +
+                    "Use ``binlog_field_name$$`` to extract a field as a whole. " +
+                    "Default is empty";
+    public static final String UPDATE_SCRIPT_ID_CONFIG = "update.script.id";
+    private static final String UPDATE_SCRIPT_ID_DOC =
+            "The script id which will be applied to Elasticsearch when updating document. " +
+                    "This config is affective only when " + SINK_ACTION_CONFIG + " is ``upsert``. " +
+                    "The binlog message data can be referenced by the ``param`` parameter. " +
+                    "Default is empty";
+    public static final String UPDATE_ON_DELETE_CONFIG = "update.on.delete";
+    private static final String UPDATE_ON_DELETE_DOC =
+            "Use stored script to update document when tombstone message arrives.";
+    public static final String VERSION_CONFLICT_RETRIES_CONFIG = "version.conflict.retries";
+    private static final String VERSION_CONFLICT_RETRIES_DOC =
+            "The number of retries before throwing an exception when a version conflict is detected by Elasticsearch. " +
+                    "This config is affective only when " + SINK_ACTION_CONFIG + " is ``upsert``. " +
+                    "The type of this field must be integer. Default is ``" +
+                    ElasticsearchSinkConnectorConstants.VERSION_CONFLICT_RETRIES_DEFAULT + "``";
+    public static final String STRING_LIST_FIELDS_CONFIG = "string.list.fields";
+    private static final String STRING_LIST_FIELDS_DOC =
+            "A list of string or byte fields to be transformed into string lists." +
+                    "These fields will be split by comma and then transformed into list of string entries. ";
+    public static final String INTEGER_LIST_FIELDS_CONFIG = "integer.list.fields";
+    private static final String INTEGER_LIST_FIELDS_DOC =
+            "A list of string or byte fields to be transformed into integer lists." +
+                    "These fields will be split by comma and then transformed into list of integer entries. ";
+    public static final String BYTES_TO_STRING_FIELDS_CONFIG = "bytes.string.fields";
+    private static final String BYTES_TO_STRING_FIELDS_DOC =
+            "A list of byte fields to be transformed into strings.";
     public static final String DROP_INVALID_MESSAGE_CONFIG = "drop.invalid.message";
     private static final String DROP_INVALID_MESSAGE_DOC =
             "Whether to drop kafka message when it cannot be converted to output message.";
@@ -174,6 +237,26 @@ public class ElasticsearchSinkConnectorConfig extends AbstractConfig {
                 ++order,
                 Width.SHORT,
                 "Retry Backoff (ms)"
+        ).define(
+                READ_TIMEOUT_MS_CONFIG,
+                Type.INT,
+                ElasticsearchSinkConnectorConstants.READ_TIMEOUT_MS_DEFAULT,
+                Importance.LOW,
+                READ_TIMEOUT_MS_DOC,
+                group,
+                ++order,
+                Width.SHORT,
+                "Read Timeout (ms)"
+        ).define(
+                CONN_TIMEOUT_MS_CONFIG,
+                Type.INT,
+                ElasticsearchSinkConnectorConstants.CONN_TIMEOUT_MS_DEFAULT,
+                Importance.LOW,
+                CONN_TIMEOUT_MS_DOC,
+                group,
+                ++order,
+                Width.SHORT,
+                "Connection Timeout (ms)"
         );
     }
 
@@ -230,6 +313,108 @@ public class ElasticsearchSinkConnectorConfig extends AbstractConfig {
                 ++order,
                 Width.SHORT,
                 "Field name for extracting record data version"
+        ).define(
+                SINK_ACTION_CONFIG,
+                Type.STRING,
+                ElasticsearchSinkConnectorConstants.SINK_ACTION_DEFAULT,
+                Importance.MEDIUM,
+                SINK_ACTION_DOC,
+                group,
+                ++order,
+                Width.SHORT,
+                "The sink action to Elasticsearch for new binlog messages"
+        ).define(
+                SINK_FIELD_PATHS_CONFIG,
+                Type.STRING,
+                "",
+                Importance.LOW,
+                SINK_FIELD_PATHS_DOC,
+                group,
+                ++order,
+                Width.SHORT,
+                "The document field to which the binlog struct will be sunk"
+        ).define(
+                SINK_FIELD_PATHS_ARG_CONFIG,
+                Type.STRING,
+                "",
+                Importance.LOW,
+                SINK_FIELD_PATHS_ARG_DOC,
+                group,
+                ++order,
+                Width.SHORT,
+                "The argument which will be evaluated along with "
+                        + SINK_FIELD_PATHS_CONFIG
+                        + " to generate fully qualified field paths"
+        ).define(
+                INDEX_KEY_EXPRESSION_CONFIG,
+                Type.STRING,
+                "",
+                Importance.LOW,
+                INDEX_KEY_EXPRESSION_DOC,
+                group,
+                ++order,
+                Width.SHORT,
+                "The expression which will be evaluated and used as the index key to Elasticsearch"
+        ).define(
+                UPDATE_SCRIPT_ID_CONFIG,
+                Type.STRING,
+                "",
+                Importance.LOW,
+                UPDATE_SCRIPT_ID_DOC,
+                group,
+                ++order,
+                Width.SHORT,
+                "The script id which will be applied to Elasticsearch when updating document"
+        ).define(
+                UPDATE_ON_DELETE_CONFIG,
+                Type.STRING,
+                "",
+                Importance.LOW,
+                UPDATE_ON_DELETE_DOC,
+                group,
+                ++order,
+                Width.LONG,
+                "Use stored script to update document when tombstone message arrives"
+        ).define(
+                VERSION_CONFLICT_RETRIES_CONFIG,
+                Type.INT,
+                ElasticsearchSinkConnectorConstants.VERSION_CONFLICT_RETRIES_DEFAULT,
+                Importance.LOW,
+                VERSION_CONFLICT_RETRIES_DOC,
+                group,
+                ++order,
+                Width.SHORT,
+                "The number of retries before throwing an exception when a version conflict is detected by Elasticsearch"
+        ).define(
+                STRING_LIST_FIELDS_CONFIG,
+                Type.LIST,
+                "",
+                Importance.LOW,
+                STRING_LIST_FIELDS_DOC,
+                group,
+                ++order,
+                Width.LONG,
+                "A list of string or byte fields to be transformed into string lists"
+        ).define(
+                INTEGER_LIST_FIELDS_CONFIG,
+                Type.LIST,
+                "",
+                Importance.LOW,
+                INTEGER_LIST_FIELDS_DOC,
+                group,
+                ++order,
+                Width.LONG,
+                "A list of string or byte fields to be transformed into integer lists"
+        ).define(
+                BYTES_TO_STRING_FIELDS_CONFIG,
+                Type.LIST,
+                "",
+                Importance.LOW,
+                BYTES_TO_STRING_FIELDS_DOC,
+                group,
+                ++order,
+                Width.LONG,
+                "A list of byte fields to be transformed into strings"
         ).define(
                 DROP_INVALID_MESSAGE_CONFIG,
                 Type.BOOLEAN,

@@ -4,8 +4,9 @@ import com.cloudest.connect.elasticsearch.Key;
 import io.searchbox.action.BulkableAction;
 
 public abstract class SinkableRecord {
-    public enum Operation {
+    public enum Action {
         INDEX,
+        UPSERT,
         DELETE
     }
 

@@ -18,7 +18,7 @@
   <modules>
     <module>kafka-connect-hdfs-utils</module>
     <module>kafka-connect-hbase</module>
-    <module>kafka-connect-elasticsearch</module>
+    <module>kafka-connect-binlog-elasticsearch</module>
   </modules>
 
   <properties>
